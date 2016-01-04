@@ -55,6 +55,8 @@ public protocol Connection {
     
     var connectionInfo: ConnectionInfoType { get }
     
+    var activeTransaction: Bool { get }
+    
     func open() throws
     
     func close()
@@ -72,6 +74,10 @@ public protocol Connection {
     func commit() throws
     
     func rollback() throws
+    
+    func transactionStart() throws
+    
+    func transactionEnd() throws
     
     func createSavePointNamed(name: String) throws
     
@@ -98,6 +104,26 @@ public extension Connection {
     
     public func rollback() throws {
         try execute("ROLLBACK")
+    }
+    
+    public func transactionStart() throws {
+        guard !activeTransaction else { throw Error.TransactionAlreadyStarted }
+        
+        try execute("BEGIN")
+        activeTransaction = true
+    }
+    
+    public func transactionEnd() throws {
+        guard activeTransaction else { throw Error.TransactionNotStarted }
+        
+        do {
+            try execute("COMMIT")
+            activeTransaction = false
+        } catch {
+            try execute("ROLLBACK")
+            activeTransaction = false
+            throw Error.TransactionAborted
+        }
     }
     
     @available(*, deprecated=0.1.0)
